@@ -58,7 +58,7 @@ void game(int *sockets){
                 if(GAME.gang > 4 || (GAME.gang == 4 && GAME.p[now_player].angang.size() + GAME.p[now_player].fulu_gang.size() < 4)){
                     for(int j = 0 ; j < 4 ; j++)
                         send(sockets[j], "liu_ju", 6, 0);// 四杠散了
-                    break;
+                    goto this_round_end;
                 }
                 GAME.p[now_player].angang.push_back(x);
                 GAME.open_dora();
@@ -91,21 +91,24 @@ void game(int *sockets){
                 GAME.leiji_point = 0;
                 if(check_flying())
                     goto end;
-                break;
+                goto this_round_end;
             }
+            already_fu_lu:;
+            
             //舍张
             send(sockets[now_player], "she_zhang", 9, 0);
             recv(sockets[now_player], BUF, sizeof(BUF), 0);
             int she_zhang = BUF[0];
             for(int j = 0 ; j < 4 ; j++)
                 send(sockets[j], GAME);
+
             // 是否有人荣
             vector<pair<int, int> >v;
             for(int i = 0 ; i < 4 ; i++){
                 if(i == now_player)
                     continue;
-                send(sockets[now_player], "check_rong", 10, 0);
-                int siz = recv(sockets[now_player], BUF, sizeof(BUF), 0);
+                send(sockets[i], "check_rong", 10, 0);
+                int siz = recv(sockets[i], BUF, sizeof(BUF), 0);
                 BUF[siz] = '\0';
                 if(strcmp(BUF, "not_rong") != 0){
                     int x = atoi(BUF);
@@ -130,10 +133,67 @@ void game(int *sockets){
                 }
                 if(check_flying())
                     goto end;
-                break;
+                goto this_round_end;
             }
+
             // 是否有人杠
+            for(int i = 0 ; i < 4 ; i++){
+                if(i == now_player)
+                    continue;
+                send(sockets[i], "check_ming_gang", 15, 0);
+                int siz = recv(sockets[i], BUF, sizeof(BUF), 0);
+                BUF[siz] = '\0';
+                if(strcmp(BUF, "not_ming_gang") != 0){
+                    int x = BUF[0];
+                    GAME.gang++;
+                    if(GAME.gang > 4 || (GAME.gang == 4 && GAME.p[i].angang.size() + GAME.p[i].fulu_gang.size() < 4)){
+                        for(int j = 0 ; j < 4 ; j++)
+                            send(sockets[j], "liu_ju", 6, 0);// 四杠散了
+                        goto this_round_end;
+                    }
+                    GAME.p[i].fulu_gang.push_back(x);
+                    GAME.open_dora();
+                    GAME.p[i].inhand.push_back(GAME.paishan[GAME.rht--]);
+                    now_player = i;
+                    for(int j = 0 ; j < 4 ; j++)
+                        send(sockets[j], GAME);
+                    goto already_fu_lu;
+                }
+            }
+            // 是否有人碰
+            for(int i = 0 ; i < 4 ; i++){
+                if(i == now_player)
+                    continue;
+                send(sockets[i], "check_peng", 10, 0);
+                int siz = recv(sockets[i], BUF, sizeof(BUF), 0);
+                BUF[siz] = '\0';
+                if(strcmp(BUF, "not_peng") != 0){
+                    int x = BUF[0];
+                    GAME.p[i].fulu_peng.push_back(x);
+                    now_player = i;
+                    for(int j = 0 ; j < 4 ; j++)
+                        send(sockets[j], GAME);
+                    goto already_fu_lu;
+                }
+            }
+            // 是否有人吃
+            for(int i = 0 ; i < 4 ; i++){
+                if(i == now_player)
+                    continue;
+                send(sockets[i], "check_chi", 9, 0);
+                int siz = recv(sockets[i], BUF, sizeof(BUF), 0);
+                BUF[siz] = '\0';
+                if(strcmp(BUF, "not_chi") != 0){
+                    int x = BUF[0];
+                    GAME.p[i].fulu_chi.push_back(x);
+                    now_player = i;
+                    for(int j = 0 ; j < 4 ; j++)
+                        send(sockets[j], GAME);
+                    goto already_fu_lu;
+                }
+            }
         }
+        this_round_end:;
     }
     end:;
 }
